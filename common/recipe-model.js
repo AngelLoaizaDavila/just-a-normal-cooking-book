@@ -25,7 +25,14 @@ const RecipesSchema = new mongoose.Schema(
     steps: {
       type: Array,
       required: true,
-      schema: [String],
+      schema: {
+        step: {
+          type: Number,
+        },
+        description: {
+          type: String,
+        },
+      },
     },
     portions: {
       type: Number,
@@ -56,5 +63,6 @@ const RecipesSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.models.recipes ? mongoose.models.recipes : 
-mongoose.model('recipes', RecipesSchema)
+module.exports = mongoose.models.recipes
+  ? mongoose.models.recipes
+  : mongoose.model("recipes", RecipesSchema);

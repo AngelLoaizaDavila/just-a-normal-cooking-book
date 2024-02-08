@@ -1,10 +1,10 @@
 const Recipe = require("./common/recipe-model");
 const db = require("./common/db/mongo");
 // const recipes = require("./common/recipe-model");
-
+const service = require('./functions/recipe/service')
 const saveRecipe = async () => {
-  const recipe = new Recipe({
-    name: "Salt water",
+  await service.createRecipe({
+    name: "Salt water3",
     ingredients: [
       {
         name: "salt",
@@ -24,9 +24,6 @@ const saveRecipe = async () => {
       unit: "min",
     },
   });
-  await db.init();
-  await recipe.save();
-  await db.disconnect();
   console.log("created");
 }
 const getRecipe = async (name) => {
@@ -37,7 +34,8 @@ const getRecipe = async (name) => {
   return recipe
 }
 const main = async () => {
-  const response =  await getRecipe("Salt water")
-  console.log(response)
+  // const response =  await getRecipe("Salt water")
+  // console.log(response)
+  await saveRecipe()
 };
 main();
