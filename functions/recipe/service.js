@@ -11,10 +11,30 @@ module.exports.searchRecipe = async (data) => {
   const recipe = await Recipe.findOne({
     name: name,
   });
+  await db.disconnect();
   if (!recipe) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
     throw createError(404, "Recipe not found");
   }
+  await db.disconnect()
   return recipe;
+};
+
+module.exports.findRecipes = async (data) => {
+  const { limit, offset } = data;
+
+  await db.init();
+  const recipes = await Recipe.find({})
+    .skip(offset ? offset : 0)
+    .limit(limit ? limit : 20);
+  if (!recipes || recipes.length === 0) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
+    throw createError(404, "No recipes where found");
+  }
+  await db.disconnect();
+  return recipes;
 };
 
 module.exports.createRecipe = async (data) => {
@@ -26,6 +46,8 @@ module.exports.createRecipe = async (data) => {
   await db.init();
   const alreadyExists = await Recipe.findOne({ name: name });
   if (alreadyExists !== null) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
     throw createError(400, "Recipe already exists");
   }
   const recipe = new Recipe({
@@ -56,6 +78,8 @@ module.exports.updateRecipe = async (data) => {
 
   const recipe = await Recipe.findOne({ name: name });
   if (!recipe) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
     throw createError(404, "Recipe does not exist");
   }
   const dataToBeUpdated = {};
@@ -88,6 +112,8 @@ module.exports.updateRecipe = async (data) => {
     };
   }
   if (Object.keys(dataToBeUpdated).length === 0) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
     throw createError(
       400,
       "Recipe could't be updated because there is no data to be updated"
@@ -117,6 +143,8 @@ module.exports.deleteRecipe = async (data) => {
     throw createError(400, "The recipe you are trying to delete doesn't exist");
   }
   if (recipe.deleted === true) {
+    // TODO -> Control db init and disconnect on router
+    await db.disconnect();
     throw createError(
       400,
       "The recipe you are trying to delete is already deleted"
