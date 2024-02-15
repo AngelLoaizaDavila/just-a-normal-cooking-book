@@ -1,6 +1,22 @@
 const Recipe = require("../../common/recipe-model");
 const db = require("../../common/db/mongo");
 const createError = require("http-errors");
+
+module.exports.searchRecipe = async (data) => {
+  const { name } = data;
+  if (!name || name === null || name === undefined) {
+    throw createError(400, "Missing required param");
+  }
+  await db.init();
+  const recipe = await Recipe.findOne({
+    name: name,
+  });
+  if (!recipe) {
+    throw createError(404, "Recipe not found");
+  }
+  return recipe;
+};
+
 module.exports.createRecipe = async (data) => {
   const { name, ingredients, steps, portions, cookingTime } = data;
   if (!name || !ingredients || !steps || !portions || !cookingTime) {
@@ -22,16 +38,6 @@ module.exports.createRecipe = async (data) => {
   await recipe.save();
   await db.disconnect();
 };
-// const parseIngredients = (ingredients) => {
-//   return ingredients.map((item, index) => {
-//     return {
-//       index: index,
-//       name: item.name,
-//       quantity: item.quantity,
-//       unit: item.unit,
-//     };
-//   });
-// };
 const parseSteps = (steps) => {
   return steps.map((item, index) => {
     return {
@@ -40,11 +46,7 @@ const parseSteps = (steps) => {
     };
   });
 };
-/**
- *TODO: each update needs to be separate so front can pass me
- * old and new names for the elements.
- *
- */
+
 module.exports.updateRecipe = async (data) => {
   const { name, ingredients, steps, portions, cookingTime } = data;
   if (!name) {
@@ -56,9 +58,120 @@ module.exports.updateRecipe = async (data) => {
   if (!recipe) {
     throw createError(404, "Recipe does not exist");
   }
+  const dataToBeUpdated = {};
+  if (ingredients && ingredients !== null && ingredients !== undefined) {
+    const updatedIngredients = await updateIngredients(recipe, ingredients);
+    if (updatedIngredients !== null) {
+      dataToBeUpdated.ingredients = updatedIngredients;
+    }
+  }
+  if (steps && steps !== null && steps !== undefined) {
+    const updatedSteps = await updateSteps(recipe, steps);
+    if (updatedSteps !== null) {
+      dataToBeUpdated.steps = updatedSteps;
+    }
+  }
+  if (portions && portions !== null && portions !== undefined) {
+    // portions -> number
+    dataToBeUpdated.portions = portions;
+  }
+  if (cookingTime && cookingTime !== null && cookingTime !== undefined) {
+    /**
+     * cookingTime: {
+     *  time: number,
+     *  unit: string
+     * }
+     */
+    dataToBeUpdated.cookingTime = {
+      time: cookingTime.time,
+      unit: cookingTime.unit,
+    };
+  }
+  if (Object.keys(dataToBeUpdated).length === 0) {
+    throw createError(
+      400,
+      "Recipe could't be updated because there is no data to be updated"
+    );
+  }
+
+  await Recipe.updateOne(
+    {
+      name: recipe.name,
+    },
+    {
+      $set: dataToBeUpdated,
+    }
+  );
+  await db.disconnect();
+  return dataToBeUpdated;
 };
-module.exports.updateIngredients = async (data) => {
-  const { recipeName, ingredients } = data;
+
+module.exports.deleteRecipe = async (data) => {
+  const { name } = data;
+  if (!name || name === null || name === undefined) {
+    throw createError(400, "Missing required params");
+  }
+  await db.init();
+  const recipe = await Recipe.findOne({ name: name });
+  if (!recipe) {
+    throw createError(400, "The recipe you are trying to delete doesn't exist");
+  }
+  if (recipe.deleted === true) {
+    throw createError(
+      400,
+      "The recipe you are trying to delete is already deleted"
+    );
+  }
+  await Recipe.updateOne(
+    {
+      name: name,
+    },
+    {
+      $set: {
+        deleted: true,
+      },
+    }
+  );
+  await db.disconnect();
+  return {
+    message: `Recipe "${name}", has been successfully deleted`,
+  };
+};
+
+// AUXILIARY METHODS
+const updateSteps = async (recipe, steps) => {
+  /**
+   * steps: [
+   *  {
+   *    step: number,
+   *    description: string
+   *  }
+   * ]
+   */
+
+  const recipeSteps = recipe.steps;
+  if (!Array.isArray(steps)) {
+    return null;
+  }
+  const updatedSteps = [];
+  for (let i = 0; i < recipeSteps.length; i++) {
+    const step = recipeSteps[i];
+    const alreadyExistsStep = steps.find((item) => item.step === step.step);
+    if (!alreadyExistsStep) {
+      updatedSteps.push(step);
+      continue;
+    }
+    if (alreadyExistsStep) {
+      updatedSteps.push({
+        step: step.step,
+        description: alreadyExistsStep.description,
+      });
+      continue;
+    }
+  }
+  return updatedSteps;
+};
+const updateIngredients = async (recipe, ingredients) => {
   /**
    * ingredients: [
    *  {
@@ -69,17 +182,11 @@ module.exports.updateIngredients = async (data) => {
    *  }
    * ]
    */
-  if (!recipeName) {
-    throw createError(400, "Missing required params");
-  }
+
   if (!Array.isArray(ingredients)) {
-    throw createError(400, "Missing required params");
+    return null;
   }
-  await db.init();
-  const recipe = await Recipe.findOne({ name: recipeName });
-  if (!recipe) {
-    throw createError(404, "Recipe does not exist");
-  }
+
   const updatedIngredients = [];
   for (let i = 0; i < recipe.ingredients.length; i++) {
     // oldIngredient
@@ -103,16 +210,6 @@ module.exports.updateIngredients = async (data) => {
       );
     }
   }
-  await Recipe.updateOne(
-    {
-      name: recipeName,
-    },
-    {
-      $set: {
-        ingredients: updatedIngredients,
-      },
-    }
-  );
   return updatedIngredients;
 };
 
