@@ -22,7 +22,8 @@ module.exports.searchRecipe = async (data) => {
 };
 
 module.exports.findRecipes = async (data) => {
-  const { limit, offset } = data;
+  const { limit, offset } = data || {};
+  console.log({limit: limit, offset: offset})
 
   await db.init();
   const recipes = await Recipe.find({})
@@ -59,6 +60,7 @@ module.exports.createRecipe = async (data) => {
   });
   await recipe.save();
   await db.disconnect();
+  return recipe;
 };
 const parseSteps = (steps) => {
   return steps.map((item, index) => {
