@@ -6,12 +6,13 @@ const port = process.env.PORT || 8000;
 const server = http.createServer((req, res) => {
   const url = req.url;
   const createdUrl = new URL(url, `http://${hostname}:${port}`);
-  console.log(createdUrl);
   const method = req.method;
-  // const searchParams = new URLSearchParams(url)
-  // console.log(window.location.search)
-  // console.log(searchParams)
-  if (createdUrl.pathname === "/recipes" && method === "GET") {
+  const hasRecipeNameParam = createdUrl.searchParams.has("recipeName");
+  if (
+    createdUrl.pathname === "/recipes" &&
+    method === "GET" &&
+    !hasRecipeNameParam
+  ) {
     if (createdUrl.searchParams) {
       console.log("has params");
     }
@@ -20,6 +21,29 @@ const server = http.createServer((req, res) => {
       .findRecipes({
         limit: createdUrl.searchParams.get("limit") || 20,
         offset: createdUrl.searchParams.get("offset") || 0,
+      })
+      .then((data) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      })
+      .catch((err) => {
+        console.log(err);
+        res.writeHead(400);
+        res.end();
+      });
+  }
+  if (
+    createdUrl.pathname === "/recipes" &&
+    method === "GET" &&
+    hasRecipeNameParam
+  ) {
+    if (createdUrl.searchParams) {
+      console.log("has params");
+    }
+    console.log(req.method);
+    recipesService
+      .searchRecipe({
+        name: createdUrl.searchParams.get("recipeName"),
       })
       .then((data) => {
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -40,19 +64,20 @@ const server = http.createServer((req, res) => {
     });
     req.on("end", async () => {
       const parsedData = JSON.parse(data);
-      await recipesService.createRecipe(parsedData).then((data) => {
-        res.writeHead(200, 'Content-Type: application/json')
-        res.write(JSON.stringify(data, null, 2))
-        res.end()
-      }).catch((err) => {
-        res.writeHead(400, 'Content-Type: application/json')
-        res.write(err.toString())
-        res.end()
-      });
-    })
-    res.emit('end')
-    // res.writeHead(200);
-    // res.end(recipe1);
+      await recipesService
+        .createRecipe(parsedData)
+        .then((data) => {
+          res.writeHead(200, "Content-Type: application/json");
+          res.write(JSON.stringify(data, null, 2));
+          res.end();
+        })
+        .catch((err) => {
+          res.writeHead(400, "Content-Type: application/json");
+          res.write(err.toString());
+          res.end();
+        });
+    });
+    res.emit("end");
   }
 });
 
@@ -60,16 +85,3 @@ server.listen(port, hostname, () => {
   console.log(`Server running at http://${hostname}:${port}/`);
 });
 
-// http.get(`http://${hostname}:${port}`, (res) => {
-//   console.log('status', res.statusCode)
-//   console.log('Headers:')
-//   console.log(res.headers)
-//   console.log('Body:')
-//   let data = '';
-//   res.on('data', (chunk) => {
-//     data += chunk
-//   })
-//   res.on('close', () => {
-//     console.log(data)
-//   })
-// })
